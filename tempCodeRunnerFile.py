@@ -1,3 +1,37 @@
+import os
+from flask import Flask, render_template, request, redirect, url_for, session
+from datetime import datetime
+import json
+   
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+
+products = [
+    {'id': '1001', 'name': 'Laptop', 'category': 'Electronics', 'price': 45000, 'stock': 'Available', 'status': 'active'},
+    {'id': '1010', 'name': 'Television', 'category': 'Electronics', 'price': 32000, 'stock': 'Available', 'status': 'active'},
+]
+
+try:
+    with open('sales_data.json', 'r') as f:
+        sales = json.load(f)
+except FileNotFoundError:
+    sales = []
+
+try:
+    with open('bills_data.json', 'r') as f:
+        bills = json.load(f)
+except FileNotFoundError:
+    bills = []
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        session['username'] = request.form.get('username', 'guest')
+        session['role'] = request.form.get('role', 'cashier')
+        return redirect(url_for('sales_management'))
+    return '<p>Login required. Submit username and role via POST.</p>'
+
+
 @app.route('/sales', methods=['GET', 'POST'])
 def sales_management():
     if 'username' not in session:
@@ -79,7 +113,7 @@ def sales_management():
                 ):
                     filtered.append(s)
 
-    template = 'cashier/Sales.html' if session.get('role') == 'cashier' else 'admin/Sales.html'
+    template = 'cashier/sales.html' if session.get('role') == 'cashier' else 'admin/sales.html'
 
     return render_template(
         template,
@@ -87,8 +121,12 @@ def sales_management():
         products=products,
         search_query=search_query
     )
+
 @app.route('/delete_sale/<int:sale_id>', methods=['POST'])
 def delete_sale(sale_id):
     global sales
     sales[:] = [s for s in sales if s['id'] != sale_id]
     return redirect(url_for('sales_management'))
+
+if __name__ == '__main__':
+    app.run(debug=True)

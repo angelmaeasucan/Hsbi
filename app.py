@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import json
+import os
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Add a secret key for sessions
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')  # Use environment secret if available
 
 # --- DATABASES ---
 customers = [
@@ -125,7 +126,7 @@ def cashier_dashboard():
 def customer_management():
     if 'username' not in session:
         return redirect(url_for('login'))
-    if session.get('role') == 'cashier' and request.method == 'POST':
+    if session.get('role') == 'cashier' and request.method == 'POST' and 'save_customer' in request.form:
         return redirect(url_for('customer_management'))
     global customers
     error = None
@@ -163,7 +164,7 @@ def delete_customer(customer_id):
 def products_management():
     if 'username' not in session:
         return redirect(url_for('login'))
-    if session.get('role') == 'cashier' and request.method == 'POST':
+    if session.get('role') == 'cashier' and request.method == 'POST' and 'save_product' in request.form:
         return redirect(url_for('products_management'))
     global products
     error = None
@@ -243,11 +244,15 @@ def sales_management():
 
             matched_prod = next((p for p in products if p['name'] == prod_name), None)
 
-            if matched_prod:
+            if not prod_name or not cust_name or not qty or qty <= 0:
+                error = "Please select a product, customer and enter a valid quantity."
+            elif not matched_prod:
+                error = "Selected product not found."
+            else:
                 total_p = matched_prod['price'] * qty
 
                 new_sale = {
-                    'id': cust_id,
+                    'id': len(sales) + 1,
                     'customer_id': cust_id,
                     'product': prod_name,
                     'customer': cust_name,
@@ -302,10 +307,10 @@ def sales_management():
         products=products,
         search_query=search_query
     )
-@app.route('/delete_sale/<int:sale_id>', methods=['POST'])
+@app.route('/delete_sale/<sale_id>', methods=['POST'])
 def delete_sale(sale_id):
     global sales
-    sales[:] = [s for s in sales if s['id'] != sale_id]
+    sales[:] = [s for s in sales if str(s.get('id')) != str(sale_id)]
     return redirect(url_for('sales_management'))
 
 @app.route('/billing', methods=['GET', 'POST'])
@@ -511,5 +516,4 @@ if __name__ == '__main__':
     log_activity('system', 'System Start', 'System')
     app.run(debug=True)
     
-def handler(request):
-    return app
+handler = app
